@@ -4,6 +4,9 @@ VL53L0X for 16x2 display module. Calculates speed, ditance, acceleration and shi
 Requires [MedianFilter](https://github.com/daPhoosa/MedianFilter/) library
 
 Controls: 
--Right = avg mode
--Left = instant mode
--Up/Down = adjust measurements amount for averages
+
+- Right = avg mode
+
+- Left = instant mode
+
+- Up/Down = adjust measurements amount for averages
