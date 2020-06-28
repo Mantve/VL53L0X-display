@@ -5,6 +5,7 @@
 #include <LiquidCrystal.h>
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 #include <math.h>
+#include <MedianFilter.h>
 
 
 unsigned long previousMillis = 0;
@@ -12,6 +13,7 @@ int interval = 250; // laikas tarp matavimu (ms)
 double intervalS; // laikas tarp matavimu (s)
 byte mode = 0; // matavimo rezimas
 
+byte avg = 25;
 // kitimas atstumo milimetrais:
 int a1;
 int a2;
@@ -30,6 +32,7 @@ double sAv = 0; // vidutinė poslinkio reikšmė
 double vAv = 0; // vidutinė greičio reikšmė
 double aAv = 0; // vidutinė pagreičio reikšmė ABS
 
+  MedianFilter filterObject(2, 0); 
 
 Adafruit_VL53L0X lox = Adafruit_VL53L0X();
 void setup()
@@ -72,7 +75,8 @@ void loop()
 {
 
     unsigned long currentMillis = millis();
-    if (ReadButton() == 1) // vidurkio rezimas
+    byte button = ReadButton();
+    if (button == 1) // vidurkio rezimas
     {
         sAv = 0;
         vAv = 0;
@@ -80,11 +84,28 @@ void loop()
         k = 0;
         mode = 1;
     }
-    else if (ReadButton() == 2) // momentinis rezimas
+    else if (button == 5) // momentinis rezimas
     {
         mode = 0;
     }
+     else if (button == 2 && mode == 0) // 
+    {
+      if(avg<250)
+        avg++;
+        PrintAvgChangeScreen();
+        delay(100);
+        previousMillis = currentMillis;
+    }
+     else if (button == 3 && mode == 0) // 
+    {
+      if(avg>0)
+        avg--;
+        PrintAvgChangeScreen();
+                delay(100);
 
+        previousMillis = currentMillis;
+
+    }
     if (currentMillis - previousMillis >= interval)
     {
         Dump();
@@ -96,6 +117,18 @@ void loop()
         }
     }
 }
+
+void PrintAvgChangeScreen()
+{
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Matavimu kiekis");
+    lcd.setCursor(7, 1);
+    lcd.print(avg);
+    lcd.print("   ");
+}
+
+
 
 void PrintCurrentDataScreen()
 {
@@ -177,13 +210,14 @@ void PrintLoadingScreen()
     lcd.print("Skaiciuojama.....");
     lcd.setCursor(0, 1);
     lcd.print(k);
-    lcd.print("/25");
+    lcd.print("/");
+    lcd.print(avg);
 }
 
 void CalcAvg()
 {
     // average reikšmėms:
-    if (k < 25) // per mazai duomenu
+    if (k < avg) // per mazai duomenu
     {
         k++;
         sAv = sAv + s;
@@ -191,14 +225,14 @@ void CalcAvg()
         aAv = aAv + abs(a);
         PrintLoadingScreen();
     }
-    else if (k == 25) // apdorojami duomenys
+    else if (k == avg) // apdorojami duomenys
     {
         sAv = sAv / k;
         vAv = vAv / k;
         aAv = aAv / k;
         k++;
     }
-    if (k >= 25) // spausdinami duomenys
+    if (k >= avg) // spausdinami duomenys
     {
         // PrintAverageDataSerial();
         PrintAverageDataScreen();
@@ -210,7 +244,7 @@ void Calculate()
     s1 = abs(a1 - a2) * 0.001; // poslinkis1 m
     s2 = abs(a2 - a3) * 0.001;
     s = (s1 + s2) / 2; // poslinkis m
-    if (s <= 0.01)
+   if (s <= 0.01)
     {
         v = 0;
         s = 0;
@@ -239,11 +273,11 @@ void Measure()
     lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
     if (measure.RangeStatus != 4) // phase failures have incorrect data
     {
-
+        filterObject.in(measure.RangeMilliMeter);
         a1 = a2; // perkeliamas praeitas matavimas i senesni
         a2 = a3;
         a3 = a4;
-        a4 = measure.RangeMilliMeter; // pirmas ismatavimas atstumo
+        a4 = filterObject.out(); // pirmas ismatavimas atstumo
     }
 }
 
